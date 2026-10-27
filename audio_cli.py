@@ -6,6 +6,10 @@ import time
 import threading
 from datetime import datetime
 
+#FOR BETTER AUDIO RECOG
+import io
+from faster_whisper import WhisperModel
+
 #Console object for Rich Text
 from rich.align import Align
 from rich.console import Console
@@ -53,6 +57,12 @@ class CompAudioController:
         pygame.mixer.init()
         
         self.recognizer = sr.Recognizer()
+        #Implements the WhisperFaster 
+        self.whisper_model = WhisperModel(
+            "tiny.en",
+            device="cpu",
+            compute_type="int8",
+        )
         self.language = language
         self.is_running = True
 
@@ -60,6 +70,7 @@ class CompAudioController:
         self.current_status = "Starting Rima..."
         self.last_transcript = "None"
         self.command_history = []
+        self.voice_history = []
         self.spinner_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
         self.spinner_idx = 0
 
@@ -88,6 +99,20 @@ class CompAudioController:
 
         print(f"[RIMA]: saved screeshot to {file_path}")
 
+    def transcribe_audio(self, audio):
+        wav_audio = io.BytesIO(audio.get_wav_data())
+        segments, info = self.whisper_model.transcribe(
+            wav_audio,
+            language="en",
+            beam_size=5,
+            vad_filter=True,
+            condition_on_previous_text=False,
+            initial_prompt="Hello, RIMA. RIMA, open Chrome. Hey RIMA.",
+        )
+
+        return " ".join(
+            segment.text.strip() for segment in segments
+        ).strip().lower()
             
     def text_to_process_upd(self, text):
         app = text.replace("open  ", " ").strip()
@@ -141,8 +166,10 @@ class CompAudioController:
             if "open " in text:
                 target = text.split("open ", 1)[1].strip()
             else:
+                
                 target = text.split("play ", 1)[1].strip()
-
+                
+            target = target.rstrip(".,!?;:").strip()
             target_app = self.APP_ALIASES.get(target, target)
 
             if "spotify:playlist" in target_app or "spotify:track:" in target_app:
@@ -169,7 +196,15 @@ class CompAudioController:
                     audio = self.recognizer.listen(source, timeout=4, phrase_time_limit=5)
                     
                     self.current_status = "Recognizing speech..."
-                    text = self.recognizer.recognize_google(audio, language=self.language).lower()
+                    text = self.transcribe_audio(audio)
+
+                    if not text:
+                        continue
+
+                    self.last_transcript = text
+                    timestamp = datetime.now().strftime("%H:%M:%S")
+                    self.voice_history.append((timestamp, text))
+                    self.voice_history = self.voice_history[-5:]
 
                     if "stop" in text or "exit" in text:
                         self.current_status = "Stopping..."
@@ -199,6 +234,10 @@ class CompAudioController:
             Layout(name="left", ratio=1),
             Layout(name="right", ratio=2)
         )
+        layout["left"].split_column(
+        Layout(name="monitor", ratio=2),
+        Layout(name="voice_history", ratio=1),
+        )
 
         header_text = Text(RIMA_BANNER, style="bold cyan")
         
@@ -226,7 +265,24 @@ class CompAudioController:
         monitor_text.append("• exit / stop\n", style="dim red")
 
         left_panel = Panel(monitor_text, title="[bold blue]Monitor[/bold blue]", border_style="blue")
-        layout["left"].update(left_panel)
+        layout["monitor"].update(left_panel)
+
+        voice_text = Text()
+
+        for timestamp, transcript in self.voice_history:
+            voice_text.append(f"{timestamp}  ", style="dim")
+            voice_text.append(f"{transcript}\n", style="cyan")
+
+        if not self.voice_history:
+            voice_text.append("Waiting for speech...", style="dim")
+
+        layout["voice_history"].update(
+            Panel(
+                voice_text,
+                title="Voice Recognition History",
+                border_style="cyan",
+            )
+        )
 
         history_table = Table(expand=True, border_style="bright_black")
         history_table.add_column("Time", style="dim white", width=10)

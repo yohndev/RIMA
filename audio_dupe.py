@@ -12,6 +12,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.layout import Layout
 from rich.live import Live
+from brain import brain as RimaBrain
 
 console = Console()
 
@@ -40,7 +41,8 @@ class CompAudioController:
 
     def __init__(self,language="en-US"):
         pygame.mixer.init()
-        
+
+        self.brain = RimaBrain()
         self.recognizer = sr.Recognizer()
         self.language = language
         self.is_running = True
@@ -90,71 +92,80 @@ class CompAudioController:
 
     def text_to_process(self, text):
         #fun commands/quick paths
-        if "wake up" in text:
-            image_path = r"C:\Users\YOHAN\Downloads\ironman.jpg"
-            image_path2 = r"C:\Users\YOHAN\Downloads\ironman2.jpg"
-            audio_path1 = r"C:\Users\YOHAN\Downloads\Recording 2026-08-05 121654.mp3"
-            audio_path2 = r"C:\Users\YOHAN\Downloads\The Clash - Should I Stay or Should I Go (Official Audio).mp3"
+        text = text.lower()
+        if "rima" in text:
+            if "wake up" in text:
+                image_path = r"C:\Users\YOHAN\Downloads\ironman.jpg"
+                image_path2 = r"C:\Users\YOHAN\Downloads\ironman2.jpg"
+                audio_path1 = r"C:\Users\YOHAN\Downloads\Recording 2026-08-05 121654.mp3"
+                audio_path2 = r"C:\Users\YOHAN\Downloads\The Clash - Should I Stay or Should I Go (Official Audio).mp3"
 
-            sound1 = pygame.mixer.Sound(audio_path1)
-            sound1.set_volume(1)  
-            sound1.play(loops=0)
-
-
-            sound2 = pygame.mixer.Sound(audio_path2)
-            sound2.set_volume(0.3) 
-            sound2.play(loops=-1)
-            os.system("start spotify:")
-            os.system("start chrome")
-            #os.system("start ")
-            os.startfile(image_path)
-            os.startfile(image_path2)
-
-            self.add_history(text, "Wake Up Executed")
-
-        #simple commands
-        elif any(
-            phrase in text
-            for phrase in [
-                "take a screenshot",
-                "screenshot",
-                "capture screen",
-            ]
-        ):
-            self.take_screenshot()
-            return
-        
-        elif "shut down" in text or "shutdown" in text:
-            self.add_history(text, "Shutdown Initiated")
-            os.system("shutdown /s /t 0")
-        
-        elif "close application" in text:
-            self.add_history(text, "Exited current App")
-            pyautogui.hotkey("alt","f4")
-            return
-        
-        elif "space" in text or "play song" in text or "stop song" in text:
-            pyautogui.press("space")
+                sound1 = pygame.mixer.Sound(audio_path1)
+                sound1.set_volume(1)  
+                sound1.play(loops=0)
 
 
-        #Main Processor
-        elif "open " in text or "play " in text:
-            if "open " in text:
-                target = text.split("open ", 1)[1].strip()
-            else:
-                target = text.split("play ", 1)[1].strip()
+                sound2 = pygame.mixer.Sound(audio_path2)
+                sound2.set_volume(0.3) 
+                sound2.play(loops=-1)
+                os.system("start spotify:")
+                os.system("start chrome")
+                #os.system("start ")
+                os.startfile(image_path)
+                os.startfile(image_path2)
 
-            target_app = self.APP_ALIASES.get(target, target)
+                self.add_history(text, "Wake Up Executed")
 
-            if "spotify:playlist" in target_app or "spotify:track:" in target_app:
-                self.play_spotify_playlist(target_app)
-            elif ":" in target_app:
-                os.system(f'start "" "{target_app}"')
-            else:
-                try:
-                    os.startfile(target_app)
-                except FileNotFoundError:
+            #simple commands
+            elif any(
+                phrase in text
+                for phrase in [
+                    "take a screenshot",
+                    "screenshot",
+                    "capture screen",
+                ]
+            ):
+                self.take_screenshot()
+                return
+            
+            elif "shut down" in text or "shutdown" in text:
+                self.add_history(text, "Shutdown Initiated")
+                os.system("shutdown /s /t 0")
+            
+            elif "close application" in text:
+                self.add_history(text, "Exited current App")
+                pyautogui.hotkey("alt","f4")
+                return
+            
+            elif "space" in text or "play song" in text or "stop song" in text:
+                pyautogui.press("space")
+
+
+            #Main Processor
+            elif "open " in text or "play " in text:
+                if "open " in text:
+                    target = text.split("open ", 1)[1].strip()
+                else:
+                    target = text.split("play ", 1)[1].strip()
+
+                target_app = self.APP_ALIASES.get(target, target)
+
+                if "spotify:playlist" in target_app or "spotify:track:" in target_app:
+                    self.play_spotify_playlist(target_app)
+                elif ":" in target_app:
                     os.system(f'start "" "{target_app}"')
+                else:
+                    try:
+                        os.startfile(target_app)
+                    except FileNotFoundError:
+                        os.system(f'start "" "{target_app}"')
+            else:
+                self.current_status = "RIMA is thinking..."
+                answer = self.brain.reply(text)
+                self.add_history_task(text, answer)
+                self.current_status = "Listening..."   
+        else:
+            pass                 
 
         
         

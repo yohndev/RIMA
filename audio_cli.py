@@ -9,6 +9,10 @@ from datetime import datetime
 #FOR BETTER AUDIO RECOG
 import io
 from faster_whisper import WhisperModel
+import re
+
+#AI INTEGRATED
+from brain import brain as RimaBrain
 
 #Console object for Rich Text
 from rich.align import Align
@@ -40,6 +44,7 @@ class CompAudioController:
         #Essentials
         "chrome": "chrome",
         "google chrome": "chrome",
+        "google": "chrome",
         "microsoft edge": "msedge",
         "calculator": "calc",
         "vs code": "code",
@@ -55,7 +60,8 @@ class CompAudioController:
 
     def __init__(self,language="en-US"):
         pygame.mixer.init()
-        
+
+        self.brain = RimaBrain()
         self.recognizer = sr.Recognizer()
         #Implements the WhisperFaster 
         self.whisper_model = WhisperModel(
@@ -71,6 +77,7 @@ class CompAudioController:
         self.last_transcript = "None"
         self.command_history = []
         self.voice_history = []
+        self.chat_history = []
         self.spinner_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
         self.spinner_idx = 0
 
@@ -107,7 +114,7 @@ class CompAudioController:
             beam_size=5,
             vad_filter=True,
             condition_on_previous_text=False,
-            initial_prompt="Hello, RIMA. RIMA, open Chrome. Hey RIMA.",
+            initial_prompt="RiMa.",
         )
 
         return " ".join(
@@ -129,61 +136,72 @@ class CompAudioController:
     def text_to_process(self, text):
         #fun commands/quick paths
         #simple commands
-        if any(
-            phrase in text
-            for phrase in [
-                "take a screenshot",
-                "screenshot",
-                "capture screen",
-            ]
-        ):
-            self.add_history_task(text, "Screen Shot Taken")
-            self.take_screenshot()
-            return
-        elif "hi" in text:
-            self.add_history_task(text, "Hi Han !!")
-            return
-        
-        elif "shut down" in text or "shutdown" in text:
-            self.add_history_task(text, "Shutdown Initiated")
-            os.system("shutdown /s /t 0")
-        
-        elif "close application" in text:
-            self.add_history_task(text, "Exited current App")
-            pyautogui.hotkey("alt","f4")
-            return
-        
-        elif "space" in text or "play song" in text or "stop song" in text:
-            pyautogui.press("space")
+        text = text.lower()
+        if re.search(r"\brima\b", text):
+            if any(
+                phrase in text
+                for phrase in [
+                    "take a screenshot",
+                    "screenshot",
+                    "capture screen",
+                ]
+            ):
+                self.add_history_task(text, "Screen Shot Taken")
+                self.take_screenshot()
+                return
+            
+            elif "shut down" in text or "shutdown" in text:
+                self.add_history_task(text, "Shutdown Initiated")
+                os.system("shutdown /s /t 0")
+            
+            elif "close application" in text:
+                self.add_history_task(text, "Exited current App")
+                pyautogui.hotkey("alt","f4")
+                return
+            
+            elif "space" in text or "play song" in text or "stop song" in text:
+                pyautogui.press("space")
+                self.add_history_task(text, "Pressed Space")
 
-        elif "alex" in text:
-            self.add_history_task(text, "Kys Alex")
-            return
+            #Main Processor
+            elif "open " in text or "play " in text:
+                # Only launch a known alias, accepting identical repeated commands.
+                command = re.sub(r"\brima\b", " ", text)
+                command = re.sub(r"[.,!?;:]", " ", command)
+                command = " ".join(command.split())
+                target = None
+                for alias in sorted(self.APP_ALIASES, key=len, reverse=True):
+                    pattern = rf"(?:(?:open|play)\s+{re.escape(alias)}(?:\s+|$))+"
+                    if re.fullmatch(pattern, command):
+                        target = alias
+                        break
 
+                if target is None:
+                    self.add_history_task(text, "Unknown app or unclear command")
+                    return
 
-        #Main Processor
-        elif "open " in text or "play " in text:
-            if "open " in text:
-                target = text.split("open ", 1)[1].strip()
-            else:
-                
-                target = text.split("play ", 1)[1].strip()
-                
-            target = target.rstrip(".,!?;:").strip()
-            target_app = self.APP_ALIASES.get(target, target)
-
-            if "spotify:playlist" in target_app or "spotify:track:" in target_app:
-                self.play_spotify_playlist(target_app)
-            elif ":" in target_app:
-                os.system(f'start "" "{target_app}"')
-                self.add_history_task(text, f"Opened: {target}")
-            else:
-                try:
-                    self.add_history_task(text, f"Opened: {target}")
+                target_app = self.APP_ALIASES[target]
+                if ":" in target_app:
                     os.startfile(target_app)
-                except FileNotFoundError:
-                    os.system(f'start "" "{target_app}"')
+                else:
+                    try:
+                        os.startfile(target_app)
+                    except FileNotFoundError:
+                        import subprocess
+                        subprocess.run(
+                            ["cmd", "/c", "start", "", target_app], check=True
+                        )
+                self.add_history_task(text, f"Launch requested: {target}")
 
+            else:
+                self.current_status = "RiMa is thinking..."
+                answer = self.brain.reply(text)
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                self.chat_history.append((timestamp, text, answer))
+                self.chat_history = self.chat_history[-5:]
+                self.current_status = "Listening..."  
+        else:
+            pass          
 
     def audio_listener_worker(self):
         with sr.Microphone() as source:
@@ -206,7 +224,10 @@ class CompAudioController:
                     self.voice_history.append((timestamp, text))
                     self.voice_history = self.voice_history[-5:]
 
-                    if "stop" in text or "exit" in text:
+                    if re.fullmatch(
+                        r"rima[\s,]+(?:stop|exit) program[.!?]*",
+                        text.strip(),
+                    ):
                         self.current_status = "Stopping..."
                         self.add_history_task(text, "Exit Command")
                         self.is_running = False
@@ -237,6 +258,11 @@ class CompAudioController:
         layout["left"].split_column(
         Layout(name="monitor", ratio=2),
         Layout(name="voice_history", ratio=1),
+        )
+
+        layout["right"].split_column(
+            Layout(name="activity", ratio=1),
+            Layout(name="conversation", ratio=1),
         )
 
         header_text = Text(RIMA_BANNER, style="bold cyan")
@@ -293,7 +319,21 @@ class CompAudioController:
             history_table.add_row(entry[0], entry[1], entry[2])
 
         right_panel = Panel(history_table, title="[bold magenta]Activity Log[/bold magenta]", border_style="magenta")
-        layout["right"].update(right_panel)
+        layout["activity"].update(right_panel)
+
+        chat_text = Text()
+        for timestamp, user_text, answer in reversed(self.chat_history):
+            chat_text.append(f"{timestamp}  You: ", style="bold cyan")
+            chat_text.append(user_text + "\n")
+            chat_text.append("RiMa: ", style="bold magenta")
+            chat_text.append(answer + "\n\n")
+
+        if not self.chat_history:
+            chat_text.append("Say RIMA's name and ask a question...", style="dim")
+
+        layout["conversation"].update(
+            Panel(chat_text, title="Chat with RiMa", border_style="green")
+        )
 
         return layout
     

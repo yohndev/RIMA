@@ -44,7 +44,6 @@ class CompAudioController:
         #Essentials
         "chrome": "chrome",
         "google chrome": "chrome",
-        "google": "chrome",
         "microsoft edge": "msedge",
         "calculator": "calc",
         "vs code": "code",
@@ -74,6 +73,8 @@ class CompAudioController:
 
         #Vars for stats 
         self.current_status = "Starting Rima..."
+        self.conversation_until = 0
+        self.conversation_timeout = 20
         self.last_transcript = "None"
         self.command_history = []
         self.voice_history = []
@@ -114,7 +115,7 @@ class CompAudioController:
             beam_size=5,
             vad_filter=True,
             condition_on_previous_text=False,
-            initial_prompt="RiMa.",
+            initial_prompt="rima",
         )
 
         return " ".join(
@@ -136,8 +137,26 @@ class CompAudioController:
     def text_to_process(self, text):
         #fun commands/quick paths
         #simple commands
-        text = text.lower()
-        if re.search(r"\brima\b", text):
+        text = text.lower().strip()
+
+        name_called = bool(re.search(r"\brima\b", text))
+        conversation_active = (
+            time.monotonic() < self.conversation_until
+        )
+
+        if not name_called and not conversation_active:
+            return
+
+        # Accept this phrase with or without rima's name.
+        ending = re.sub(r"\brima\b", "", text)
+        ending = ending.strip(" .,!?;:")
+
+        if ending in {"that's all", "that is all"}:
+            self.conversation_until = 0
+            self.current_status = "Waiting for 'rima'..."
+            return
+
+        if name_called or conversation_active:
             if any(
                 phrase in text
                 for phrase in [
@@ -165,34 +184,26 @@ class CompAudioController:
 
             #Main Processor
             elif "open " in text or "play " in text:
-                # Only launch a known alias, accepting identical repeated commands.
-                command = re.sub(r"\brima\b", " ", text)
-                command = re.sub(r"[.,!?;:]", " ", command)
-                command = " ".join(command.split())
-                target = None
-                for alias in sorted(self.APP_ALIASES, key=len, reverse=True):
-                    pattern = rf"(?:(?:open|play)\s+{re.escape(alias)}(?:\s+|$))+"
-                    if re.fullmatch(pattern, command):
-                        target = alias
-                        break
+                if "open " in text:
+                    target = text.split("open ", 1)[1].strip()
+                else:         
+                    target = text.split("play ", 1)[1].strip()
+                    
+                target = target.rstrip(".,!?;:").strip()
+                target_app = self.APP_ALIASES.get(target, target)
 
-                if target is None:
-                    self.add_history_task(text, "Unknown app or unclear command")
-                    return
-
-                target_app = self.APP_ALIASES[target]
-                if ":" in target_app:
-                    os.startfile(target_app)
+                if "spotify:playlist" in target_app or "spotify:track:" in target_app:
+                    self.play_spotify_playlist(target_app)
+                    self.add_history_task(text, f"Playing: {target}")
+                elif ":" in target_app:
+                    os.system(f'start "" "{target_app}"')
+                    self.add_history_task(text, f"Opened: {target}")
                 else:
                     try:
+                        self.add_history_task(text, f"Opened: {target}")
                         os.startfile(target_app)
                     except FileNotFoundError:
-                        import subprocess
-                        subprocess.run(
-                            ["cmd", "/c", "start", "", target_app], check=True
-                        )
-                self.add_history_task(text, f"Launch requested: {target}")
-
+                        os.system(f'start "" "{target_app}"')
             else:
                 self.current_status = "RiMa is thinking..."
                 answer = self.brain.reply(text)
@@ -201,7 +212,10 @@ class CompAudioController:
                 self.chat_history = self.chat_history[-5:]
                 self.current_status = "Listening..."  
         else:
-            pass          
+            pass  
+        self.conversation_until = (
+            time.monotonic() + self.conversation_timeout
+        )        
 
     def audio_listener_worker(self):
         with sr.Microphone() as source:
@@ -210,7 +224,10 @@ class CompAudioController:
 
             while self.is_running:
                 try:
-                    self.current_status = "Listening..."
+                    if time.monotonic() < self.conversation_until:
+                        self.current_status = "Conversation active — you can reply"
+                    else:
+                        self.current_status = "Waiting for 'RiMa'..."
                     audio = self.recognizer.listen(source, timeout=4, phrase_time_limit=5)
                     
                     self.current_status = "Recognizing speech..."
@@ -325,14 +342,14 @@ class CompAudioController:
         for timestamp, user_text, answer in reversed(self.chat_history):
             chat_text.append(f"{timestamp}  You: ", style="bold cyan")
             chat_text.append(user_text + "\n")
-            chat_text.append("RiMa: ", style="bold magenta")
+            chat_text.append("RIMA: ", style="bold magenta")
             chat_text.append(answer + "\n\n")
 
         if not self.chat_history:
             chat_text.append("Say RIMA's name and ask a question...", style="dim")
 
         layout["conversation"].update(
-            Panel(chat_text, title="Chat with RiMa", border_style="green")
+            Panel(chat_text, title="Chat with RIMA", border_style="green")
         )
 
         return layout

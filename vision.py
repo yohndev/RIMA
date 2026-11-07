@@ -13,6 +13,8 @@ pyautogui.FAILSAFE = True
 
 class CompVisionController:
 
+    
+
     def __init__(self):
         self.cap = cv2.VideoCapture(0)
         self.screen_w, self.screen_h = pyautogui.size()

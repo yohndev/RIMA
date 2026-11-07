@@ -8,7 +8,7 @@ from mediapipe.tasks.python import vision
 
 # This is the Class for the camera hand tracking
 pyautogui.PAUSE = 0
-pyautogui.FAILSAFE = False
+pyautogui.FAILSAFE = True
 
 
 class CompVisionController:
@@ -40,18 +40,23 @@ class CompVisionController:
         pinky_down = hand_landmarks[20].y > hand_landmarks[18].y
 
         return index_up and middle_down and ring_down and pinky_down
-    
+
+    def release_click(self):
+        if self.is_clicking:
+            pyautogui.mouseUp()
+            self.is_clicking = False
+
     def move_cursor(self, hand_landmarks, frame_w, frame_h):
         index_tip = hand_landmarks[8]
 
-        cx = int(index_tip.x * frame_w) #get teh y and x asxis of the finger
+        cx = int(index_tip.x * frame_w) #get the y and x asxis of the finger
         cy = int(index_tip.y * frame_h) 
         target_x = np.interp(cx, (0, frame_w), (0, self.screen_w))
         target_y = np.interp(cy, (0, frame_h), (0, self.screen_h))
         curr_x = self.prev_x + (target_x - self.prev_x) / self.smooth_factor # formula is js prev position + distance to target/smooth variable
         curr_y = self.prev_y + (target_y - self.prev_y) / self.smooth_factor
 
-        #moves the curor according to the current values
+        #moves the cursor according to the current values
         pyautogui.moveTo(curr_x, curr_y)
         self.prev_x, self.prev_y = curr_x, curr_y
 
@@ -90,27 +95,41 @@ class CompVisionController:
 
             cx, cy = int(hand[8].x * w), int(hand[8].y * h)
             cv2.circle(frame, (cx, cy), 4, circle_color, cv2.FILLED)
+        else:
+            self.release_click()    
 
         return frame, results.hand_landmarks
 
     def release(self):
-        self.cap.release()
+        try:
+            self.release_click()
+        finally:
+            self.cap.release()
+            self.detector.close()
 
 
 if __name__ == "__main__":
     print("RIMA STARTING...")
-    vision = CompVisionController()
+    controller = CompVisionController()
 
-    while True:
-        frame, landmarks = vision.get_frame()
+    try:
+        while True:
+            frame, landmarks = controller.get_frame()
 
-        if frame is None:
-            print("RIMA CAMERA NOT LOADING")
-            break
+            if frame is None:
+                print("RIMA CAMERA NOT LOADING")
+                break
 
-        cv2.imshow("RIMA CAMERA TEST", frame)
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
+            cv2.imshow("RIMA CAMERA TEST", frame)
 
-    vision.release()
-    cv2.destroyAllWindows()
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+
+    except pyautogui.FailSafeException:
+        print("RIMA stopped by emergency failsafe.")
+
+    finally:
+        try:
+            controller.release()
+        finally:
+            cv2.destroyAllWindows()

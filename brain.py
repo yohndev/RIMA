@@ -6,7 +6,7 @@ class brain:
 
         self.messages = [
             {
-                #For now im making the system specified to 
+                #For now im making the system specified to my interest as this is a project built for fun 
                 "role" : "system",
                 "content": (
                     #Introduction

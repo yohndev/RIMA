@@ -39,7 +39,7 @@ def main():
                     console.print("Camera disconnected or unavailable.")
                     break
 
-                cv2.imshow("RIMA Camera — Q to quit", frame)
+                cv2.imshow("RIMA GESTURE DETECTOR", frame)
                 dashboard.update(audio.generate_layout())
             
                 key = cv2.waitKey(1) & 0xFF

@@ -2,6 +2,8 @@ import threading
 import cv2
 import pyautogui
 
+from queue import Empty
+
 from rich.live import Live
 
 from audio_cli import CompAudioController, console
@@ -32,6 +34,18 @@ def main():
                 if not listener.is_alive():
                       break
 
+                while True:
+                    try:
+                        mode = audio.vision_commands.get_nowait()
+                    except Empty:
+                        break
+
+                    camera.set_mode(mode)
+                    audio.add_history_task(
+                        f"{mode} mode",
+                        f"{mode.title()} mode activated",
+                    )
+                
                 frame, landmarks = camera.get_frame()
 
                 

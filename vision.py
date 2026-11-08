@@ -17,6 +17,7 @@ class CompVisionController:
     
 
     def __init__(self):
+        self.sound_needs_release = True
         self.cap = cv2.VideoCapture(0)
         self.screen_w, self.screen_h = pyautogui.size()
 
@@ -52,6 +53,38 @@ class CompVisionController:
             pyautogui.mouseUp()
             self.is_clicking = False
 
+    def process_sound_gesture(self, hand, frame_w, frame_h):
+        def distance(first, second):
+            return np.hypot(
+                (first.x - second.x) * frame_w,
+                (first.y - second.y) * frame_h,
+            )
+        pinch_distance = distance(hand[4], hand[8]) #4 thumb and 8 index
+        palm_size = distance(hand[0], hand[9]) #0 wrist and 9 middle finger base
+
+        if palm_size < 1:
+            self.sound.stop_adjustment()
+            self.sound_needs_release = True
+            return
+        
+        pinch_ratio = pinch_distance / palm_size
+
+        if self.sound_needs_release:
+            if pinch_ratio > 0.45:
+                self.sound_needs_release = False
+            return
+
+        if self.sound.is_adjusting:
+            if pinch_ratio > 0.45:
+                self.sound.stop_adjustment()
+            else:
+                self.sound.update_adjustments(hand[8].y)
+
+        elif pinch_ratio < 0.30:
+            self.sound.start_adjustment(hand[8].y)
+
+
+
     def move_cursor(self, hand_landmarks, frame_w, frame_h):
         index_tip = hand_landmarks[8]
 
@@ -84,6 +117,7 @@ class CompVisionController:
             return
         self.release_click()
         self.sound.stop_adjustment()
+        self.sound_needs_release = True
 
         self.prev_x, self.prev_y = pyautogui.position()
         self.mode = mode
@@ -93,6 +127,9 @@ class CompVisionController:
     def get_frame(self):
         success, frame = self.cap.read()
         if not success:
+            self.sound.stop_adjustment()
+            self.sound_needs_release = True
+            self.release_click()
             return None, None
 
         frame = cv2.flip(frame, 1) 
@@ -108,6 +145,8 @@ class CompVisionController:
 
             if self.mode == "mouse":
                 self.move_cursor(hand, w, h)
+            elif self.mode == "sound":
+                self.process_sound_gesture(hand, w, h)
 
             circle_color = (
                 (255, 200, 100) if self.is_clicking else (150, 0, 0)
@@ -116,11 +155,18 @@ class CompVisionController:
             cx, cy = int(hand[8].x * w), int(hand[8].y * h)
             cv2.circle(frame, (cx, cy), 4, circle_color, cv2.FILLED)
         else:
-            self.release_click()    
+            self.release_click()
+            self.sound.stop_adjustment()
+            self.sound_needs_release = True 
 
+
+        cv2.putText(frame, f"Mode: {self.mode.capitalize()}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+        
         return frame, results.hand_landmarks
 
     def release(self):
+        self.sound.stop_adjustment()
+        self.sound_needs_release = True
         try:
             self.release_click()
         finally:

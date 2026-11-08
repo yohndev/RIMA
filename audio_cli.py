@@ -6,10 +6,13 @@ import time
 import threading
 from datetime import datetime
 
+from queue import Queue
+
 #FOR BETTER AUDIO RECOG
 import io
 from faster_whisper import WhisperModel
 import re
+
 
 #AI INTEGRATED
 from brain import brain as RimaBrain
@@ -64,7 +67,7 @@ class CompAudioController:
         self.recognizer = sr.Recognizer()
         #Implements the WhisperFaster 
         self.whisper_model = WhisperModel(
-            "tiny.en",
+            "base.en",
             device="cpu",
             compute_type="int8",
         )
@@ -81,6 +84,7 @@ class CompAudioController:
         self.chat_history = []
         self.spinner_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
         self.spinner_idx = 0
+        self.vision_commands = Queue()
 
     def add_history_task(self, text: str, status: str = "Executed"):
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -155,7 +159,36 @@ class CompAudioController:
             self.conversation_until = 0
             self.current_status = "Waiting for 'rima'..."
             return
+        
+        mode_command = re.sub(r"\brima\b", " ", text)
+        mode_command = re.sub(r"[.,!?;:]", " ", mode_command)
+        mode_command = " ".join(mode_command.split())
 
+        requested_mode = None
+
+        if mode_command in {
+            "sound mode",
+            "volume mode",
+            "adjust volume",
+            "set volume",
+        }:
+            requested_mode = "sound"
+
+        elif mode_command in {
+            "mouse mode",
+            "cursor mode",
+        }:
+            requested_mode = "mouse"
+
+        if requested_mode is not None:
+            self.vision_commands.put(requested_mode)
+            self.add_history_task(
+                text, f"{requested_mode.title()} mode requested"
+            )
+            self.conversation_until = (
+                time.monotonic() + self.conversation_timeout
+            )
+            return
         if name_called or conversation_active:
             if any(
                 phrase in text

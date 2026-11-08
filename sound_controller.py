@@ -2,7 +2,7 @@ from pycaw.pycaw     import AudioUtilities
 
 class sound_controller:
     def __init__(self):
-        device = AudioUtilities.getSpeaker()
+        device = AudioUtilities.GetSpeakers()
 
         if device is None: 
             raise RuntimeError("No Audio device found")
@@ -15,11 +15,11 @@ class sound_controller:
         self.start_volume = None
 
     def get_volume(self):
-        return self.volume.GetMasterVolumeScalar()
+        return self.volume.GetMasterVolumeLevelScalar()
 
     def set_volume(self, level):
         level = max(0.0, min(1.0, level))
-        self.volume.SetMasterVolumeScalar(level, None)
+        self.volume.SetMasterVolumeLevelScalar(level, None)
 
     def start_adjustment(self, hand_y):
         if self.is_adjusting:
@@ -39,10 +39,10 @@ class sound_controller:
             return
 
         movement = self.start_y - hand_y
-        sensitivty = 1.5
+        sensitivity = 1.5
 
         target_volume = (
-            self.start_volume + movement * sensitivty
+            self.start_volume + movement * sensitivity
         )
 
         self.set_volume(target_volume)

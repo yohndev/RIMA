@@ -4,6 +4,7 @@ import pyautogui
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
+from sound_controller import sound_controller
 
 
 # This is the Class for the camera hand tracking
@@ -24,6 +25,9 @@ class CompVisionController:
         self.smooth_factor = 5
 
         self.is_clicking = False
+
+        self.sound = sound_controller()
+        self.mode = "mouse" #Set the mode
 
         # Initialize MediaPipe Tasks HandLandmarker
         base_options = python.BaseOptions(model_asset_path="hand_landmarker.task")
@@ -73,6 +77,19 @@ class CompVisionController:
                 self.is_clicking = False
                 print("stopped Left CLicking")
 
+    def set_mode(self, mode):
+        if mode not in {"mouse", "sound"}:
+            return
+        if mode == self.mode:
+            return
+        self.release_click()
+        self.sound.stop_adjustment()
+
+        self.prev_x, self.prev_y = pyautogui.position()
+        self.mode = mode
+
+        
+
     def get_frame(self):
         success, frame = self.cap.read()
         if not success:
@@ -89,7 +106,8 @@ class CompVisionController:
         if results.hand_landmarks:
             hand = results.hand_landmarks[0]
 
-            self.move_cursor(hand, w, h)
+            if self.mode == "mouse":
+                self.move_cursor(hand, w, h)
 
             circle_color = (
                 (255, 200, 100) if self.is_clicking else (150, 0, 0)

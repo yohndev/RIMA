@@ -269,6 +269,19 @@ class CompAudioController:
                     if not text:
                         continue
 
+                    command_aliases = {
+                        "rima x it program": "rima exit program",
+                        "vima exit program": "rima exit program",
+                        "vima x it program": "rima exit program",
+                        "rima mouse mood": "rima mouse mode",
+                        "vima volume mode": "rima volume mode",
+                    }    
+
+                    heard = re.sub(r"[.,!?;:]", " ", text.lower())
+                    heard = " ".join(heard.split())
+
+                    interpreted = command_aliases.get(heard, text)
+
                     self.last_transcript = text
                     timestamp = datetime.now().strftime("%H:%M:%S")
                     self.voice_history.append((timestamp, text))
@@ -276,14 +289,14 @@ class CompAudioController:
 
                     if re.fullmatch(
                         r"rima[\s,]+(?:stop|exit) program[.!?]*",
-                        text.strip(),
+                        interpreted.strip(),
                     ):
                         self.current_status = "Stopping..."
                         self.add_history_task(text, "Exit Command")
                         self.is_running = False
                         break
 
-                    self.text_to_process(text)
+                    self.text_to_process(interpreted)
 
                 except sr.WaitTimeoutError:
                     continue

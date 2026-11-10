@@ -2,7 +2,16 @@
 
 RIMA (Real-time Integrated Modular Assistant) is a personal experimental project I’m building to learn computer vision, and AI integration.
 
-The goal is to control parts of my computer using hand gestures and voice commands, while also being able to chat with a local AI assistant.
+RIMA's Goal is to provide the user a way to interact with their pc without using their keyboard and mouse through the use hand gestures and voice commands. This comes in handy when you are away from your keyboard or simply have your hands occupied and u want to open an app. RIMA also includes a local AI model called Ollama to providea an AI you can ask for assistance or simply an AI to talk to.
+
+
+## key features
+
+- Hand tracking for cursor movement and mouse control
+- Pinch-and-drag volume adjustment
+- Voice commands for switching modes and basic desktop actions
+- Local AI conversations through Ollama
+- Terminal dashboard for command and chat history
 
 ## Language, Libraries, and Tools
 

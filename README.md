@@ -29,3 +29,12 @@ RIMA's Goal is to provide the user a way to interact with their pc without using
 | Rich | Terminal dashboard |
 | Pycaw | Windows volume control |
 | Pygame | Audio playback |
+
+## How to Use
+
+1. Start Ollama, then run `python main.py` in your configured Python environment.
+2. Keep your hand visible to the webcam. Move your index finger to move the cursor; raise only your index finger to hold the left mouse button, then relax the gesture to release.
+3. Say **“RIMA, volume mode”** to switch to sound controls. Open your fingers first, then pinch your thumb and index finger and move up or down to adjust volume. Release to keep the volume.
+4. Say **“RIMA, mouse mode”** to return to cursor control.
+5. Say **“RIMA”** before a question or command. You can make follow-ups without her name for 20 seconds after a reply. Say **“That’s all”** to end the conversation window.
+6. Say **“RIMA, exit program”**, or press **Q** while the camera window is focused, to quit.

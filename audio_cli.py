@@ -319,7 +319,7 @@ class CompAudioController:
             Layout(name="right", ratio=2)
         )
         layout["left"].split_column(
-        Layout(name="monitor", ratio=2),
+        Layout(name="monitor", ratio=5),
         Layout(name="voice_history", ratio=1),
         )
 
@@ -346,12 +346,19 @@ class CompAudioController:
         monitor_text.append(f"\"{self.last_transcript}\"\n\n", style="italic cyan")
 
         monitor_text.append("Commands:\n", style="bold white")
-        monitor_text.append("• Terminate One Eyed Man\n", style="dim white")
         monitor_text.append("• open ______(Any Existing app)\n", style="dim white")
-        monitor_text.append("• play my playlist\n", style="dim white")
         monitor_text.append("• take screenshot\n", style="dim white")
-        monitor_text.append("• wake up\n", style="dim white")
+        monitor_text.append("• close application\n", style="dim white")
+        monitor_text.append("• rima shutdown(shuts down pc\n", style="dim white")
         monitor_text.append("• exit / stop\n", style="dim red")
+        monitor_text.append("Mode Commands:\n\n", style="bold white")
+        monitor_text.append("• Sound/Voice Mode \n", style="dim blue")
+        monitor_text.append("• RIMA sound mode\n", style="dim white")
+        monitor_text.append("• RIMA volume mode\n", style="dim white")
+        monitor_text.append("• RIMA adjust volume\n\n", style="dim white")
+        monitor_text.append("• Mouse Mode \n", style="dim blue")
+        monitor_text.append("• RIMA mouse mode\n", style="dim white")
+        monitor_text.append("• RIMA cursor mode\n", style="dim white")
 
         left_panel = Panel(monitor_text, title="[bold blue]Monitor[/bold blue]", border_style="blue")
         layout["monitor"].update(left_panel)
